@@ -171,50 +171,28 @@ public final class KurosioAuctionSystem extends JavaPlugin {
         // =========================
         if (winner != null) {
 
+            // 出品者へ入金（落札者からは入札時に徴収済み）
+            VaultManager.getEconomy().depositPlayer(
+                    Bukkit.getOfflinePlayer(
+                            auction.getSellerUUID()
+                    ),
+                    auction.getCurrentPrice()
+            );
+
+            if (seller != null) {
+                seller.sendMessage(color(
+                        ChatUtil.PREFIX +
+                                "&a売上として &6&l" +
+                                String.format("%,d", auction.getCurrentPrice()) +
+                                "円&a受け取りました。"
+                ));
+            }
+
             Player winnerPlayer = Bukkit.getPlayer(winner);
 
             if (winnerPlayer != null) {
 
-                // =========================
-// 所持金チェック
-// =========================
-                double balance =
-                        VaultManager.getEconomy()
-                                .getBalance(winnerPlayer);
-
-                if (balance < auction.getCurrentPrice()) {
-
-                    cancelAuction(
-                            auction,
-                            "落札者の所持金不足のため"
-                    );
-
-                    return;
-                }
-
-// =========================
-// 徴収
-// =========================
-                EconomyResponse response =
-                        VaultManager.getEconomy()
-                                .withdrawPlayer(
-                                        winnerPlayer,
-                                        auction.getCurrentPrice()
-                                );
-
-                if (!response.transactionSuccess()) {
-
-                    cancelAuction(
-                            auction,
-                            "落札処理に失敗したため"
-                    );
-
-                    return;
-                }
-
-// =========================
-// アイテム付与
-// =========================
+                // アイテム付与
                 Map<Integer, ItemStack> leftOver =
                         winnerPlayer.getInventory().addItem(
                                 auction.getItem()
@@ -227,39 +205,14 @@ public final class KurosioAuctionSystem extends JavaPlugin {
                     );
                 }
 
-                // 出品者へ入金
-                EconomyResponse depositResponse =
-                        VaultManager.getEconomy().depositPlayer(
-                                Bukkit.getOfflinePlayer(
-                                        auction.getSellerUUID()
-                                ),
-                                auction.getCurrentPrice()
-                        );
-
-                if (!depositResponse.transactionSuccess()) {
-                    getLogger().warning(
-                            "出品者への入金に失敗しました。(ID: " + auction.getAuctionId() + ")"
-                    );
-                }
-
-                if (seller != null) {
-                    seller.sendMessage(color(
-                            ChatUtil.PREFIX +
-                                    "&a売上として &6&l" +
-                                    String.format("%,d", auction.getCurrentPrice()) +
-                                    "円&a受け取りました。"
-                    ));
-                }
-
 
             } else {
 
-                cancelAuction(
-                        auction,
-                        "落札時に最高入札者がオフラインだったため"
+                // オフラインの勝者にはアイテムを保管
+                returnManager.addReturn(
+                        winner,
+                        auction.getItem()
                 );
-
-                return;
             }
         } else {
 
@@ -454,6 +407,14 @@ public final class KurosioAuctionSystem extends JavaPlugin {
         }
 
         auction.setActive(false);
+
+        // 最高入札者へ返金
+        if (auction.getHighestBidder() != null) {
+            VaultManager.getEconomy().depositPlayer(
+                    Bukkit.getOfflinePlayer(auction.getHighestBidder()),
+                    auction.getCurrentPrice()
+            );
+        }
 
         // 出品者へ返却
         Player seller =
