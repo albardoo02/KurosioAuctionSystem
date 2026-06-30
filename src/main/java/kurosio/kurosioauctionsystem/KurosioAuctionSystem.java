@@ -170,15 +170,26 @@ public final class KurosioAuctionSystem extends JavaPlugin {
         // =========================
         if (winner != null) {
 
+            // 出品者へ入金（落札者からは入札時に徴収済み）
+            VaultManager.getEconomy().depositPlayer(
+                    Bukkit.getOfflinePlayer(
+                            auction.getSellerUUID()
+                    ),
+                    auction.getCurrentPrice()
+            );
+
+            if (seller != null) {
+                seller.sendMessage(color(
+                        ChatUtil.PREFIX +
+                                "&a売上として &6&l" +
+                                String.format("%,d", auction.getCurrentPrice()) +
+                                "円&a受け取りました。"
+                ));
+            }
+
             Player winnerPlayer = Bukkit.getPlayer(winner);
 
             if (winnerPlayer != null) {
-
-                // 落札者から徴収
-                VaultManager.getEconomy().withdrawPlayer(
-                        winnerPlayer,
-                        auction.getCurrentPrice()
-                );
 
                 // アイテム付与
                 Map<Integer, ItemStack> leftOver =
@@ -192,31 +203,13 @@ public final class KurosioAuctionSystem extends JavaPlugin {
                     );
                 }
 
-                // 出品者へ入金
-                VaultManager.getEconomy().depositPlayer(
-                        Bukkit.getOfflinePlayer(
-                                auction.getSellerUUID()
-                        ),
-                        auction.getCurrentPrice()
-                );
-
-                if (seller != null) {
-                    seller.sendMessage(color(
-                            ChatUtil.PREFIX +
-                                    "&a売上として &6&l" +
-                                    String.format("%,d", auction.getCurrentPrice()) +
-                                    "円&a受け取りました。"
-                    ));
-                }
-
             } else {
 
-                cancelAuction(
-                        auction,
-                        "落札時に最高入札者がオフラインだったため"
+                // オフラインの勝者にはアイテムを保管
+                returnManager.addReturn(
+                        winner,
+                        auction.getItem()
                 );
-
-                return;
             }
         } else {
 
@@ -411,6 +404,14 @@ public final class KurosioAuctionSystem extends JavaPlugin {
         }
 
         auction.setActive(false);
+
+        // 最高入札者へ返金
+        if (auction.getHighestBidder() != null) {
+            VaultManager.getEconomy().depositPlayer(
+                    Bukkit.getOfflinePlayer(auction.getHighestBidder()),
+                    auction.getCurrentPrice()
+            );
+        }
 
         // 出品者へ返却
         Player seller =

@@ -10,26 +10,6 @@ public class AuctionQuitListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-
-        KurosioAuctionSystem plugin =
-                KurosioAuctionSystem.getInstance();
-
-        for (AuctionData auction :
-                plugin.getAuctionManager().getAuctions()) {
-
-            if (!auction.isActive()) continue;
-
-            if (auction.getSellerUUID().equals(
-                    event.getPlayer().getUniqueId()
-            )) {
-
-                plugin.cancelAuction(
-                        auction,
-                        "出品者がログアウトしたため"
-                );
-
-                return;
-            }
-        }
+        // 出品者がログアウトしてもオークションは継続するため、ここでは何もしません
     }
 }
